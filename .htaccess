@@ -1,0 +1,19 @@
+RewriteEngine On
+
+# Route /up to pocketknife/up.php (with or without trailing slash)
+RewriteRule ^up/?$ pocketknife/up.php [L]
+
+# Route /link to pocketknife/linkgen.php (with or without trailing slash)
+RewriteRule ^link/?$ pocketknife/linkgen.php [L]
+
+# Route /home to pocketknife/home/home.php (with or without trailing slash)
+RewriteRule ^home/?$ pocketknife/home/home.php [L]
+
+# Exclude existing directories from rewrite
+RewriteCond %{REQUEST_URI} ^/(pocketknife|uploaded)/
+RewriteRule ^ - [L]
+
+# Rewrite short links via /s/ prefix to pocketknife/linkacc.php
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^s/([a-z0-9]{5})$ pocketknife/linkacc.php?code=$1 [L,QSA]
