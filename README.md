@@ -17,19 +17,18 @@ Pocketknife provides three essential tools:
 ## Installation
 
 1. **Upload Files**
-   - Upload all files to your web root directory (e.g., `public_html` or `www`)
+   - Upload all files to your web root directory (e.g., `public_html` or `www`), including `.htaccess` in the root directory of this repository
 
 2. **Set Permissions**
    - Make sure the `uploaded/` directory is writable (chmod 755 or 775)
-   - Make sure the `home/` directory is writable (for shortlinks.txt)
+   - Make sure the `home/` directory is writable (for storing shortlinks)
 
 3. **Configure Authentication**
-   - The dashboard at `/home` is protected by HTTP Basic Authentication
-   - Important: Configure `.htaccess` and `.htpasswd` files in `pocketknife/home/` directory as needed
+   - Important: Make sure you create `.htaccess` and `.htpasswd` files in `pocketknife/home/` to enforce Basic Authentication for the Dashboard
 
 4. **Verify Apache Configuration**
    - Ensure `mod_rewrite` is enabled on your Apache server
-   - The `.htaccess` file should be processed (usually enabled by default)
+   - The `.htaccess` file in the root directory should be processed (usually enabled by default)
 
 ## Usage
 
@@ -42,12 +41,11 @@ Pocketknife provides three essential tools:
 ### Link Shortener (`/link`)
 - Visit `yourdomain.com/link`
 - Paste any URL and get a shortened link
-- Short links format: `yourdomain.com/s/abc12` (5 characters)
+- Short links format: `yourdomain.com/s/abc12` (5 character code)
 - No authentication required
 
 ### Dashboard (`/home`)
 - Visit `yourdomain.com/home`
-- Optional: Login with your credentials configured in .htpasswd
 - View all uploaded files with sizes and dates
 - View all short links with access statistics
 - Delete files or short links as needed
