@@ -20,7 +20,7 @@ if (!preg_match('/^[a-z0-9]{5}$/', $code)) {
     die('Short link not found');
 }
 
-$shortlinksFile = __DIR__ . '/pocketknife/home/shortlinks.txt';
+$shortlinksFile = __DIR__ . '/home/shortlinks.txt';
 
 if (!file_exists($shortlinksFile)) {
     http_response_code(404);
