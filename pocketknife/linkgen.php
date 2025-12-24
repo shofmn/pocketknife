@@ -14,12 +14,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['url'])) {
             mkdir($shortlinksDir, 0755, true);
         }
         
-        // Generate random 5-character code
-        $chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-        $maxAttempts = 100;
-        $code = '';
-        $found = false;
-        
         // Load existing codes
         $existingCodes = [];
         if (file_exists($shortlinksFile)) {
@@ -32,12 +26,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['url'])) {
             }
         }
         
-        // Generate unique code
-        for ($i = 0; $i < $maxAttempts; $i++) {
-            $code = substr(str_shuffle($chars), 0, 5);
-            if (!isset($existingCodes[$code])) {
-                $found = true;
-                break;
+        $code = '';
+        $found = false;
+        
+        // Check if custom code provided
+        $customCode = isset($_POST['custom_code']) ? trim($_POST['custom_code']) : '';
+        
+        if (!empty($customCode)) {
+            // Validate custom code: 1-10 characters, a-z0-9 only
+            if (preg_match('/^[a-z0-9]{1,10}$/', $customCode)) {
+                // Check for collision
+                if (!isset($existingCodes[$customCode])) {
+                    $code = $customCode;
+                    $found = true;
+                } else {
+                    $message = 'Custom code already exists';
+                }
+            } else {
+                $message = 'Invalid custom code. Must be 1-10 characters (a-z, 0-9 only)';
+            }
+        } else {
+            // Generate random 5-character code
+            $chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+            $maxAttempts = 100;
+            
+            // Generate unique code
+            for ($i = 0; $i < $maxAttempts; $i++) {
+                $code = substr(str_shuffle($chars), 0, 5);
+                if (!isset($existingCodes[$code])) {
+                    $found = true;
+                    break;
+                }
+            }
+            
+            if (!$found) {
+                $message = 'Failed to generate unique code';
             }
         }
         
@@ -52,8 +75,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['url'])) {
             $host = $_SERVER['HTTP_HOST'];
             $shortLink = $protocol . $host . '/s/' . $code;
             $message = 'Short link created';
-        } else {
-            $message = 'Failed to generate unique code';
         }
     } else {
         $message = 'Invalid URL';
@@ -73,6 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['url'])) {
         <h1 class="centered">Shorten Link</h1>
         <form method="POST">
             <input type="url" name="url" placeholder="https://example.com" required>
+            <input type="text" name="custom_code" placeholder="Custom code (optional, 1-10 chars, a-z0-9)" maxlength="10" pattern="[a-z0-9]{1,10}">
             <button type="submit">Shorten</button>
         </form>
         <?php if ($message): ?>

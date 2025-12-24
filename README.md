@@ -41,14 +41,16 @@ Pocketknife provides three essential tools:
 ### Link Shortener (`/link`)
 - Visit `yourdomain.com/link`
 - Paste any URL and get a shortened link
-- Short links format: `yourdomain.com/s/abc12` (5 character code)
+- Optionally set a custom code (1-10 characters, a-z0-9 only)
+- If no custom code provided, a random 5-character code is auto-generated
+- Short links format: `yourdomain.com/s/abc12` (1-10 character code, custom or auto-generated)
 - No authentication required
 
 ### Dashboard (`/home`)
 - Visit `yourdomain.com/home`
 - View all uploaded files with sizes and dates
 - View all short links with access statistics
-- Delete files or short links as needed
+- Edit shortlink codes or delete files and short links as needed
 
 ## Requirements
 

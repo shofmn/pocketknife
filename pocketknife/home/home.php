@@ -102,6 +102,82 @@ try {
         echo json_encode(['success' => false]);
         exit;
     }
+    
+    // Handle PUT/PATCH requests for editing shortlink codes
+    if ($_SERVER['REQUEST_METHOD'] === 'PUT' || $_SERVER['REQUEST_METHOD'] === 'PATCH') {
+        $input = file_get_contents('php://input');
+        $data = json_decode($input, true);
+        
+        // Check for errors before proceeding
+        if ($errorMessage !== null) {
+            throw new Exception($errorDetails);
+        }
+        
+        if (isset($data['type']) && $data['type'] === 'link' && isset($data['oldCode']) && isset($data['newCode'])) {
+            $oldCode = trim($data['oldCode']);
+            $newCode = trim($data['newCode']);
+            
+            // Validate new code: 1-10 characters, a-z0-9 only
+            if (!preg_match('/^[a-z0-9]{1,10}$/', $newCode)) {
+                ob_clean();
+                header('Content-Type: application/json');
+                echo json_encode(['success' => false, 'error' => 'Invalid code. Must be 1-10 characters (a-z, 0-9 only)']);
+                exit;
+            }
+            
+            $shortlinksFile = __DIR__ . '/shortlinks.txt';
+            if (file_exists($shortlinksFile)) {
+                $lines = file($shortlinksFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+                $updatedLines = [];
+                $found = false;
+                $collision = false;
+                
+                // Load existing codes (excluding the current one being edited)
+                $existingCodes = [];
+                foreach ($lines as $line) {
+                    $parts = explode('|', $line);
+                    if (count($parts) >= 1 && $parts[0] !== $oldCode) {
+                        $existingCodes[$parts[0]] = true;
+                    }
+                }
+                
+                // Check for collision
+                if (isset($existingCodes[$newCode])) {
+                    $collision = true;
+                }
+                
+                if (!$collision) {
+                    // Update the code
+                    foreach ($lines as $line) {
+                        $parts = explode('|', $line);
+                        if (count($parts) === 4 && $parts[0] === $oldCode) {
+                            $found = true;
+                            $updatedLines[] = $newCode . '|' . $parts[1] . '|' . $parts[2] . '|' . $parts[3];
+                        } else {
+                            $updatedLines[] = $line;
+                        }
+                    }
+                    
+                    if ($found) {
+                        file_put_contents($shortlinksFile, implode("\n", $updatedLines) . "\n");
+                        ob_clean();
+                        header('Content-Type: application/json');
+                        echo json_encode(['success' => true]);
+                        exit;
+                    }
+                } else {
+                    ob_clean();
+                    header('Content-Type: application/json');
+                    echo json_encode(['success' => false, 'error' => 'Code already exists']);
+                    exit;
+                }
+            }
+        }
+        ob_clean();
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'error' => 'Invalid request']);
+        exit;
+    }
 
 // Format file size
 function formatSize($bytes) {
@@ -242,6 +318,7 @@ $host = $_SERVER['HTTP_HOST'];
                                 <td><?php echo htmlspecialchars($link['datetime']); ?></td>
                                 <td><?php echo $link['counter']; ?></td>
                                 <td>
+                                    <a href="#" class="delete-link" onclick="editLinkCode('<?php echo htmlspecialchars($link['code']); ?>'); return false;">Edit</a> |
                                     <a href="#" class="delete-link" onclick="deleteLink('<?php echo htmlspecialchars($link['code']); ?>'); return false;">Delete</a>
                                 </td>
                             </tr>
@@ -268,6 +345,34 @@ $host = $_SERVER['HTTP_HOST'];
                     })
                 }).then(() => {
                     location.reload();
+                });
+            }
+        }
+        
+        function editLinkCode(code) {
+            var newCode = prompt('Enter new code (1-10 characters, a-z0-9 only):', code);
+            if (newCode !== null && newCode.trim() !== '') {
+                newCode = newCode.trim().toLowerCase();
+                if (!/^[a-z0-9]{1,10}$/.test(newCode)) {
+                    alert('Invalid code. Must be 1-10 characters (a-z, 0-9 only)');
+                    return;
+                }
+                fetch(window.location.href, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        type: 'link',
+                        oldCode: code,
+                        newCode: newCode
+                    })
+                }).then(response => response.json()).then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert(data.error || 'Failed to update code');
+                    }
                 });
             }
         }

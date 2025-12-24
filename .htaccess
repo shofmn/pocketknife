@@ -16,4 +16,4 @@ RewriteRule ^ - [L]
 # Rewrite short links via /s/ prefix to pocketknife/linkacc.php
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^s/([a-z0-9]{5})$ pocketknife/linkacc.php?code=$1 [L,QSA]
+RewriteRule ^s/([a-z0-9]{1,10})$ pocketknife/linkacc.php?code=$1 [L,QSA]

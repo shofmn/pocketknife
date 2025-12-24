@@ -15,7 +15,7 @@ if (empty($code)) {
 }
 
 // Validate code format
-if (!preg_match('/^[a-z0-9]{5}$/', $code)) {
+if (!preg_match('/^[a-z0-9]{1,10}$/', $code)) {
     http_response_code(404);
     die('Short link not found');
 }
