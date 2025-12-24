@@ -154,6 +154,10 @@ button:hover {
     border-radius: 4px;
     word-break: break-all;
     text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
 }
 
 .short-link a {
@@ -163,6 +167,25 @@ button:hover {
 
 .short-link a:hover {
     text-decoration: underline;
+}
+
+.copy-button {
+    padding: 8px 16px;
+    background: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.2s ease;
+}
+
+.copy-button:hover {
+    background: #218838;
+}
+
+.copy-button.copied {
+    background: #155724;
 }
 
 /* Links */
@@ -386,6 +409,18 @@ tr:hover {
 
     .short-link a:hover {
         color: #8bc8ff;
+    }
+
+    .copy-button {
+        background: #28a745;
+    }
+
+    .copy-button:hover {
+        background: #218838;
+    }
+
+    .copy-button.copied {
+        background: #155724;
     }
 
     /* Dashboard Specific */

@@ -105,9 +105,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['url'])) {
         <?php if ($shortLink): ?>
             <div class="short-link">
                 <a href="<?php echo htmlspecialchars($shortLink); ?>" target="_blank"><?php echo htmlspecialchars($shortLink); ?></a>
+                <button type="button" class="copy-button" onclick="copyToClipboard('<?php echo htmlspecialchars($shortLink); ?>', this)">Copy</button>
             </div>
         <?php endif; ?>
     </div>
+    
+    <script>
+        async function copyToClipboard(text, button) {
+            try {
+                // Try modern Clipboard API first (works on iOS 13.4+, modern browsers)
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(text);
+                    showCopySuccess(button);
+                    return;
+                }
+                
+                // Fallback for older browsers (including older iOS)
+                // Create a temporary textarea element
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                textarea.style.left = '-999999px';
+                document.body.appendChild(textarea);
+                
+                // Select and copy
+                textarea.select();
+                textarea.setSelectionRange(0, text.length); // For iOS
+                
+                try {
+                    const successful = document.execCommand('copy');
+                    if (successful) {
+                        showCopySuccess(button);
+                    } else {
+                        throw new Error('Copy command failed');
+                    }
+                } catch (err) {
+                    // If execCommand fails, try selecting the text for manual copy
+                    alert('Please copy manually: ' + text);
+                }
+                
+                document.body.removeChild(textarea);
+            } catch (err) {
+                // Final fallback: show the text for manual copying
+                alert('Please copy manually: ' + text);
+            }
+        }
+        
+        function showCopySuccess(button) {
+            const originalText = button.textContent;
+            button.textContent = 'Copied!';
+            button.classList.add('copied');
+            setTimeout(function() {
+                button.textContent = originalText;
+                button.classList.remove('copied');
+            }, 2000);
+        }
+    </script>
 </body>
 </html>
 
