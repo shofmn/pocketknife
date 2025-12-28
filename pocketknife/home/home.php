@@ -122,7 +122,7 @@ try {
         exit;
     }
     
-    // Handle PUT/PATCH requests for editing shortlink codes
+    // Handle PUT/PATCH requests for editing shortlink codes and notes
     if ($_SERVER['REQUEST_METHOD'] === 'PUT' || $_SERVER['REQUEST_METHOD'] === 'PATCH') {
         $input = file_get_contents('php://input');
         $data = json_decode($input, true);
@@ -132,6 +132,7 @@ try {
             throw new Exception($errorDetails);
         }
         
+        // Handle link editing
         if (isset($data['type']) && $data['type'] === 'link' && isset($data['oldCode']) && isset($data['newCode'])) {
             $oldCode = trim($data['oldCode']);
             $newCode = trim($data['newCode']);
@@ -189,6 +190,69 @@ try {
                     header('Content-Type: application/json');
                     echo json_encode(['success' => false, 'error' => 'Code already exists']);
                     exit;
+                }
+            }
+        }
+        // Handle note editing
+        elseif (isset($data['type']) && $data['type'] === 'note' && isset($data['filename']) && isset($data['content'])) {
+            $notesDir = __DIR__ . '/../notes/';
+            $filename = basename($data['filename']); // Sanitize filename
+            // Validate filename format
+            if (preg_match('/^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.txt$/', $filename)) {
+                $filePath = $notesDir . $filename;
+                // Verify file exists and is within notes directory
+                if (file_exists($filePath) && is_file($filePath)) {
+                    $realPath = realpath($filePath);
+                    $realNotesDir = realpath($notesDir);
+                    if ($realPath && $realNotesDir && strpos($realPath, $realNotesDir) === 0) {
+                        // Validate content length
+                        $content = trim($data['content']);
+                        $name = isset($data['name']) ? trim($data['name']) : '';
+                        
+                        if (strlen($content) > 10000) {
+                            ob_clean();
+                            header('Content-Type: application/json');
+                            echo json_encode(['success' => false, 'error' => 'Note content exceeds 10,000 characters']);
+                            exit;
+                        } elseif (empty($content)) {
+                            ob_clean();
+                            header('Content-Type: application/json');
+                            echo json_encode(['success' => false, 'error' => 'Note content cannot be empty']);
+                            exit;
+                        }
+                        
+                        // Parse existing file to get original date
+                        $existingContent = file_get_contents($filePath);
+                        $lines = explode("\n", $existingContent);
+                        $originalDate = '';
+                        foreach ($lines as $line) {
+                            if (preg_match('/^Date:\s*(.+)$/', $line, $matches)) {
+                                $originalDate = trim($matches[1]);
+                                break;
+                            }
+                        }
+                        
+                        // Use original date or current date if not found
+                        $dateTime = !empty($originalDate) ? $originalDate : date('Y-m-d H:i:s');
+                        
+                        // Write updated note (store raw content)
+                        $noteContent = "Date: $dateTime\n";
+                        $noteContent .= "Name: $name\n";
+                        $noteContent .= "\n";
+                        $noteContent .= $content;
+                        
+                        if (file_put_contents($filePath, $noteContent)) {
+                            ob_clean();
+                            header('Content-Type: application/json');
+                            echo json_encode(['success' => true]);
+                            exit;
+                        } else {
+                            ob_clean();
+                            header('Content-Type: application/json');
+                            echo json_encode(['success' => false, 'error' => 'Failed to update note']);
+                            exit;
+                        }
+                    }
                 }
             }
         }
@@ -304,6 +368,45 @@ if (is_dir($notesDir)) {
 // Get current domain for short links
 $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https://' : 'http://';
 $host = $_SERVER['HTTP_HOST'];
+
+// Handle GET requests for editing notes (show edit form)
+$editNoteFilename = '';
+$editNoteName = '';
+$editNoteContent = '';
+$showEditForm = false;
+
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['edit'])) {
+    $editFile = basename($_GET['edit']); // Sanitize filename
+    // Validate filename format
+    if (preg_match('/^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.txt$/', $editFile)) {
+        $notesDir = __DIR__ . '/../notes/';
+        $filePath = $notesDir . $editFile;
+        // Verify file exists and is within notes directory
+        if (file_exists($filePath) && is_file($filePath)) {
+            $realPath = realpath($filePath);
+            $realNotesDir = realpath($notesDir);
+            if ($realPath && $realNotesDir && strpos($realPath, $realNotesDir) === 0) {
+                $fileContent = file_get_contents($filePath);
+                $lines = explode("\n", $fileContent);
+                
+                $editNoteFilename = $editFile;
+                $inContent = false;
+                
+                foreach ($lines as $line) {
+                    if (preg_match('/^Name:\s*(.+)$/', $line, $matches)) {
+                        $editNoteName = trim($matches[1]);
+                    } elseif ($line === '' && !$inContent) {
+                        $inContent = true;
+                    } elseif ($inContent) {
+                        $editNoteContent .= ($editNoteContent === '' ? '' : "\n") . $line;
+                    }
+                }
+                
+                $showEditForm = true;
+            }
+        }
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -418,7 +521,7 @@ $host = $_SERVER['HTTP_HOST'];
                                 <td><a href="/pocketknife/notes/<?php echo htmlspecialchars($note['filename']); ?>" target="_blank"><?php echo htmlspecialchars($note['truncatedContent']); ?></a></td>
                                 <td><?php echo htmlspecialchars($note['date']); ?></td>
                                 <td>
-                                    <a href="/note?edit=<?php echo urlencode($note['filename']); ?>">Edit</a> |
+                                    <a href="/home?edit=<?php echo urlencode($note['filename']); ?>">Edit</a> |
                                     <a href="#" class="delete-link" onclick="deleteNote('<?php echo htmlspecialchars($note['filename']); ?>'); return false;">Delete</a>
                                 </td>
                             </tr>
@@ -429,6 +532,20 @@ $host = $_SERVER['HTTP_HOST'];
                 <div class="empty">No notes created yet</div>
             <?php endif; ?>
         </section>
+        
+        <?php if ($showEditForm): ?>
+        <section>
+            <h2>Edit Note</h2>
+            <form id="edit-note-form">
+                <input type="hidden" id="edit-note-filename" value="<?php echo htmlspecialchars($editNoteFilename); ?>">
+                <input type="text" id="edit-note-name" placeholder="Name (optional)" value="<?php echo htmlspecialchars($editNoteName); ?>" maxlength="255">
+                <textarea id="edit-note-content" placeholder="Note content (max 10,000 characters)" rows="15" maxlength="10000" required><?php echo htmlspecialchars($editNoteContent); ?></textarea>
+                <button type="submit">Save Changes</button>
+                <button type="button" onclick="window.location.href='/home'">Cancel</button>
+            </form>
+            <div id="edit-note-message"></div>
+        </section>
+        <?php endif; ?>
     </div>
     
     <script>
@@ -510,7 +627,91 @@ $host = $_SERVER['HTTP_HOST'];
                 });
             }
         }
+        
+        <?php if ($showEditForm): ?>
+        document.getElementById('edit-note-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            var filename = document.getElementById('edit-note-filename').value;
+            var name = document.getElementById('edit-note-name').value;
+            var content = document.getElementById('edit-note-content').value;
+            var messageDiv = document.getElementById('edit-note-message');
+            
+            if (content.length > 10000) {
+                messageDiv.innerHTML = '<div class="message error">Note content exceeds 10,000 characters</div>';
+                return;
+            }
+            
+            if (content.trim() === '') {
+                messageDiv.innerHTML = '<div class="message error">Note content cannot be empty</div>';
+                return;
+            }
+            
+            fetch(window.location.href, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    type: 'note',
+                    filename: filename,
+                    name: name,
+                    content: content
+                })
+            }).then(response => response.json()).then(data => {
+                if (data.success) {
+                    messageDiv.innerHTML = '<div class="message success">Note updated successfully</div>';
+                    setTimeout(function() {
+                        window.location.href = '/home';
+                    }, 1000);
+                } else {
+                    messageDiv.innerHTML = '<div class="message error">' + (data.error || 'Failed to update note') + '</div>';
+                }
+            }).catch(function(error) {
+                messageDiv.innerHTML = '<div class="message error">Error updating note</div>';
+            });
+        });
+        <?php endif; ?>
     </script>
+    
+    <style>
+        <?php if ($showEditForm): ?>
+        #edit-note-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        #edit-note-form textarea {
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            font-family: inherit;
+            resize: vertical;
+            width: 100%;
+        }
+        
+        #edit-note-form button[type="button"] {
+            background: #6c757d;
+        }
+        
+        #edit-note-form button[type="button"]:hover {
+            background: #5a6268;
+        }
+        
+        @media (prefers-color-scheme: dark) {
+            #edit-note-form textarea {
+                background: #2d2d2d;
+                border-color: #444;
+                color: #e0e0e0;
+            }
+            
+            #edit-note-form textarea:hover {
+                border-color: #666;
+            }
+        }
+        <?php endif; ?>
+    </style>
 </body>
 </html>
 <?php
