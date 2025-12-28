@@ -9,6 +9,9 @@ RewriteRule ^link/?$ pocketknife/linkgen.php [L]
 # Route /home to pocketknife/home/home.php (with or without trailing slash)
 RewriteRule ^home/?$ pocketknife/home/home.php [L]
 
+# Route /note to pocketknife/notes.php (with or without trailing slash)
+RewriteRule ^note/?$ pocketknife/notes.php [L]
+
 # Exclude existing directories from rewrite
 RewriteCond %{REQUEST_URI} ^/(pocketknife|uploaded)/
 RewriteRule ^ - [L]

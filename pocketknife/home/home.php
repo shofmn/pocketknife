@@ -95,6 +95,25 @@ try {
                     echo json_encode(['success' => true]);
                     exit;
                 }
+            } elseif ($data['type'] === 'note' && isset($data['filename'])) {
+                $notesDir = __DIR__ . '/../notes/';
+                $filename = basename($data['filename']); // Sanitize filename
+                // Validate filename format (YYYY-MM-DD_hh-mm-ss.txt)
+                if (preg_match('/^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.txt$/', $filename)) {
+                    $filePath = $notesDir . $filename;
+                    if (file_exists($filePath) && is_file($filePath)) {
+                        // Verify file is within notes directory (prevent directory traversal)
+                        $realPath = realpath($filePath);
+                        $realNotesDir = realpath($notesDir);
+                        if ($realPath && $realNotesDir && strpos($realPath, $realNotesDir) === 0) {
+                            unlink($filePath);
+                            ob_clean();
+                            header('Content-Type: application/json');
+                            echo json_encode(['success' => true]);
+                            exit;
+                        }
+                    }
+                }
             }
         }
         ob_clean();
@@ -232,6 +251,56 @@ if (file_exists($shortlinksFile)) {
     }
 }
 
+// Get notes
+$notesDir = __DIR__ . '/../notes/';
+$notes = [];
+
+if (is_dir($notesDir)) {
+    $fileList = scandir($notesDir);
+    foreach ($fileList as $file) {
+        if ($file !== '.' && $file !== '..' && is_file($notesDir . $file) && preg_match('/\.txt$/', $file)) {
+            $filePath = $notesDir . $file;
+            $fileContent = file_get_contents($filePath);
+            $lines = explode("\n", $fileContent);
+            
+            $name = '';
+            $date = '';
+            $content = '';
+            $inContent = false;
+            
+            foreach ($lines as $line) {
+                if (preg_match('/^Date:\s*(.+)$/', $line, $matches)) {
+                    $date = trim($matches[1]);
+                } elseif (preg_match('/^Name:\s*(.+)$/', $line, $matches)) {
+                    $name = trim($matches[1]);
+                } elseif ($line === '' && !$inContent) {
+                    $inContent = true;
+                } elseif ($inContent) {
+                    $content .= ($content === '' ? '' : "\n") . $line;
+                }
+            }
+            
+            // Content is stored raw, no need to decode
+            
+            // Truncate content to 60 characters for display
+            $truncatedContent = mb_strlen($content) > 60 ? mb_substr($content, 0, 60) . '...' : $content;
+            
+            $notes[] = [
+                'filename' => $file,
+                'name' => $name,
+                'content' => $content,
+                'truncatedContent' => $truncatedContent,
+                'date' => $date
+            ];
+        }
+    }
+    
+    // Sort notes by date (newest first)
+    usort($notes, function($a, $b) {
+        return strcmp($b['date'], $a['date']);
+    });
+}
+
 // Get current domain for short links
 $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https://' : 'http://';
 $host = $_SERVER['HTTP_HOST'];
@@ -329,6 +398,37 @@ $host = $_SERVER['HTTP_HOST'];
                 <div class="empty">No short links created yet</div>
             <?php endif; ?>
         </section>
+        
+        <section>
+            <h2>Notes</h2>
+            <?php if (count($notes) > 0): ?>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Text</th>
+                            <th>Created</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($notes as $note): ?>
+                            <tr>
+                                <td><?php echo htmlspecialchars($note['name'] ?: '(No name)'); ?></td>
+                                <td><a href="/pocketknife/notes/<?php echo htmlspecialchars($note['filename']); ?>" target="_blank"><?php echo htmlspecialchars($note['truncatedContent']); ?></a></td>
+                                <td><?php echo htmlspecialchars($note['date']); ?></td>
+                                <td>
+                                    <a href="/note?edit=<?php echo urlencode($note['filename']); ?>">Edit</a> |
+                                    <a href="#" class="delete-link" onclick="deleteNote('<?php echo htmlspecialchars($note['filename']); ?>'); return false;">Delete</a>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php else: ?>
+                <div class="empty">No notes created yet</div>
+            <?php endif; ?>
+        </section>
     </div>
     
     <script>
@@ -387,6 +487,23 @@ $host = $_SERVER['HTTP_HOST'];
                     body: JSON.stringify({
                         type: 'link',
                         code: code
+                    })
+                }).then(() => {
+                    location.reload();
+                });
+            }
+        }
+        
+        function deleteNote(filename) {
+            if (confirm('Delete note ' + filename + '?')) {
+                fetch(window.location.href, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        type: 'note',
+                        filename: filename
                     })
                 }).then(() => {
                     location.reload();
