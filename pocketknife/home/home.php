@@ -205,11 +205,16 @@ try {
                     $realPath = realpath($filePath);
                     $realNotesDir = realpath($notesDir);
                     if ($realPath && $realNotesDir && strpos($realPath, $realNotesDir) === 0) {
-                        // Validate content length
+                        // Validate name and content length
                         $content = trim($data['content']);
                         $name = isset($data['name']) ? trim($data['name']) : '';
                         
-                        if (strlen($content) > 10000) {
+                        if (strlen($name) > 30) {
+                            ob_clean();
+                            header('Content-Type: application/json');
+                            echo json_encode(['success' => false, 'error' => 'Note name exceeds 30 characters']);
+                            exit;
+                        } elseif (strlen($content) > 10000) {
                             ob_clean();
                             header('Content-Type: application/json');
                             echo json_encode(['success' => false, 'error' => 'Note content exceeds 10,000 characters']);
@@ -538,7 +543,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['edit'])) {
             <h2>Edit Note</h2>
             <form id="edit-note-form">
                 <input type="hidden" id="edit-note-filename" value="<?php echo htmlspecialchars($editNoteFilename); ?>">
-                <input type="text" id="edit-note-name" placeholder="Name (optional)" value="<?php echo htmlspecialchars($editNoteName); ?>" maxlength="255">
+                <input type="text" id="edit-note-name" placeholder="Name (optional, max 30 characters)" value="<?php echo htmlspecialchars($editNoteName); ?>" maxlength="30">
                 <textarea id="edit-note-content" placeholder="Note content (max 10,000 characters)" rows="15" maxlength="10000" required><?php echo htmlspecialchars($editNoteContent); ?></textarea>
                 <button type="submit">Save Changes</button>
                 <button type="button" onclick="window.location.href='/home'">Cancel</button>
@@ -635,6 +640,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['edit'])) {
             var name = document.getElementById('edit-note-name').value;
             var content = document.getElementById('edit-note-content').value;
             var messageDiv = document.getElementById('edit-note-message');
+            
+            if (name.length > 30) {
+                messageDiv.innerHTML = '<div class="message error">Note name exceeds 30 characters</div>';
+                return;
+            }
             
             if (content.length > 10000) {
                 messageDiv.innerHTML = '<div class="message error">Note content exceeds 10,000 characters</div>';

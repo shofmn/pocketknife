@@ -73,8 +73,10 @@ try {
         $content = isset($_POST['content']) ? trim($_POST['content']) : '';
         $name = isset($_POST['name']) ? trim($_POST['name']) : '';
         
-        // Validate content length
-        if (strlen($content) > 10000) {
+        // Validate name length
+        if (strlen($name) > 30) {
+            $message = 'Note name exceeds 30 characters';
+        } elseif (strlen($content) > 10000) {
             $message = 'Note content exceeds 10,000 characters';
         } elseif (empty($content)) {
             $message = 'Note content cannot be empty';
@@ -122,7 +124,7 @@ try {
     <div class="container form">
         <h1 class="centered">Create Note</h1>
         <form method="POST">
-            <input type="text" name="name" placeholder="Name (optional)" value="" maxlength="255">
+            <input type="text" name="name" placeholder="Name (optional, max 30 characters)" value="" maxlength="30">
             <textarea name="content" placeholder="Note content (max 10,000 characters)" rows="15" maxlength="10000" required></textarea>
             <button type="submit">Save</button>
         </form>
